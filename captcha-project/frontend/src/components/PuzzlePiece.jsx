@@ -2,16 +2,12 @@
 import React, { useRef } from 'react';
 
 function PuzzlePiece({ pieceId, pieceSrc, onDragStart }) {
-  const dragItem = useRef();
-
   const handleDragStart = (e) => {
-    dragItem.current = pieceId;
-    onDragStart(e, pieceId);
+    onDragStart(pieceId); // Pass pieceId to parent component
   };
 
   return (
     <img
-      ref={dragItem}
       src={pieceSrc}
       alt={`Puzzle piece ${pieceId}`}
       draggable="true"
