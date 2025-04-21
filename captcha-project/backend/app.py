@@ -46,9 +46,10 @@ def generate_puzzle(difficulty):
 def generate_captcha():
     """Generate a new CAPTCHA puzzle"""
     difficulty = session.get('next_difficulty', 'easy')
+    #print(difficulty)
     
     puzzle = generate_puzzle(difficulty)
-    print(puzzle)
+    #print(puzzle)
     session['current_puzzle'] = puzzle
     session['start_time'] = time.time()
     session['retries'] = 0
@@ -56,11 +57,11 @@ def generate_captcha():
     # Prepend full URL to image paths
     images_with_urls = [f"http://localhost:5000/{path}" for path in puzzle['images']]
     
-    print("Generated Puzzle Data:", {
-        'puzzle': images_with_urls,
-        'missing_index': puzzle['missing_index'],
-        'difficulty': difficulty
-    })  # Debugging
+    # print("Generated Puzzle Data:", {
+    #     'puzzle': images_with_urls,
+    #     'missing_index': puzzle['missing_index'],
+    #     'difficulty': difficultySS
+    # })  # Debugging
 
     return jsonify({
         'puzzle': images_with_urls,
@@ -95,6 +96,11 @@ def validate_captcha():
         'solve_time': round(solve_time, 2),
         'retries': retries
     })
+@app.route('/debug_session', methods=['GET'])
+def debug_session():
+    session_data = dict(session)
+    print("Session data:", session_data)
+    return jsonify(session_data)
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
