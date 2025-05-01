@@ -6,22 +6,25 @@ import PieceBank from './PieceBank';
 function PuzzleBoard() {
   const [puzzleData, setPuzzleData] = useState({ pieces: [], missingIndex: -1 });
   const [availablePieces, setAvailablePieces] = useState([]);
+  const [difficulty, setDifficulty] = useState('easy'); // Add difficulty state
   const dragItem = useRef();
   const dragOverItem = useRef();
 
   useEffect(() => {
-    axios.get('http://localhost:5000/generate_captcha')
+    axios.get(`http://localhost:5000/generate_captcha?difficulty=${difficulty}`,
+      {withCredentials: true})
       .then(res => {
         const pieces = res.data.puzzle.map((src, i) => ({ id: `${i}`, src }));
         setPuzzleData({ pieces, missingIndex: res.data.missing_index });
-        setAvailablePieces(pieces.filter((_, i) => i !== res.data.missing_index));
+        setAvailablePieces(pieces)//.filter((_, i) => i !== res.data.missing_index));
       });
   }, []);
 
   const handleDragEnd = () => {
-    axios.post('http://localhost:5000/validate_captcha', { 
-      placed_index: puzzleData.missingIndex // ✅ Correct index for validation
-    }).then(res => {
+    axios.post('http://localhost:5000/validate_captcha', 
+    {placed_index: puzzleData.missingIndex}, // ✅ Correct index for validation
+    {withCredentials: true}
+    ).then(res => {
       if (res.data.correct) {
         const draggedPiece = availablePieces.find(p => p.id === dragItem.current);
         
