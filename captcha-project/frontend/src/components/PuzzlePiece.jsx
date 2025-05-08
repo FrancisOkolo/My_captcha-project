@@ -1,9 +1,10 @@
-// src/PuzzlePiece.js
-import React, { useRef } from 'react';
+import React from 'react';
 
-function PuzzlePiece({ pieceId, pieceSrc, onDragStart }) {
+function PuzzlePiece({ pieceId, pieceSrc, onDragStart, pieceSize = '100px' }) {
   const handleDragStart = (e) => {
-    onDragStart(pieceId); // Pass pieceId to parent component
+    if (onDragStart) {
+      onDragStart(pieceId); // Pass pieceId to parent component
+    }
   };
 
   return (
@@ -12,7 +13,12 @@ function PuzzlePiece({ pieceId, pieceSrc, onDragStart }) {
       alt={`Puzzle piece ${pieceId}`}
       draggable="true"
       onDragStart={handleDragStart}
-      style={{ width: '100px', height: '100px', border: '1px solid black' }}
+      style={{ 
+        width: pieceSize, 
+        height: pieceSize, 
+        border: '1px solid black',
+        objectFit: 'cover'
+      }}
     />
   );
 }

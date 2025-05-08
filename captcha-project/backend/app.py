@@ -36,36 +36,30 @@ def get_state(solve_time, retries, mouse_movement):
 def generate_puzzle(difficulty):
     """Generate puzzle data based on difficulty level"""
     sizes = {'easy': 9, 'medium': 16, 'hard': 25}
+    size = sizes[difficulty]
     return {
-        'missing_index': random.randint(0, sizes[difficulty]-1),
+        'missing_index': random.randint(0, size-1),
         # Generate relative paths for images
-        'images': [f'static/images/{difficulty}_part{i+1}.jpg' for i in range(sizes[difficulty])]
+        'puzzle': [f'static/images/{difficulty}_part{i+1}.jpg' for i in range(size)],
+        'difficulty': difficulty
     }
 
 @app.route('/generate_captcha', methods=['GET'])
 def generate_captcha():
     """Generate a new CAPTCHA puzzle"""
     difficulty = session.get('next_difficulty', 'easy')
-    #print(difficulty)
     
-    puzzle = generate_puzzle(difficulty)
-    #print(puzzle)
-    session['current_puzzle'] = puzzle
+    puzzle_data = generate_puzzle(difficulty)
+    session['current_puzzle'] = puzzle_data
     session['start_time'] = time.time()
     session['retries'] = 0
 
     # Prepend full URL to image paths
-    images_with_urls = [f"http://localhost:5000/{path}" for path in puzzle['images']]
+    images_with_urls = [f"http://localhost:5000/{path}" for path in puzzle_data['puzzle']]
     
-    # print("Generated Puzzle Data:", {
-    #     'puzzle': images_with_urls,
-    #     'missing_index': puzzle['missing_index'],
-    #     'difficulty': difficultySS
-    # })  # Debugging
-
     return jsonify({
         'puzzle': images_with_urls,
-        'missing_index': puzzle['missing_index'],
+        'missing_index': puzzle_data['missing_index'],
         'difficulty': difficulty
     })
 
@@ -74,28 +68,61 @@ def validate_captcha():
     """Validate user's CAPTCHA solution and determine next difficulty"""
     data = request.get_json()
     
+    if 'current_puzzle' not in session:
+        return jsonify({
+            'correct': False,
+            'error': 'No active puzzle session'
+        }), 400
+    
+    current_difficulty = session['current_puzzle'].get('difficulty', 'easy')
     correct_index = session['current_puzzle']['missing_index']
-    is_correct = int(data['placed_index']) == correct_index
+    placed_piece_id = data.get('placed_index')
+    
+    # Check if the piece ID placed is the correct one for the missing spot
+    is_correct = str(placed_piece_id) == str(correct_index)
     
     end_time = time.time()
-    solve_time = end_time - session['start_time']
+    solve_time = end_time - session.get('start_time', end_time)
     retries = session.get('retries', 0)
     mouse_movement = 'Human'  # Placeholder (implement mouse tracking separately)
     
+    # Determine next difficulty based on Q-learning
     current_state = get_state(solve_time, retries, mouse_movement)
-
-    available_actions = Q_TABLE.get(current_state, {'easy': 0, 'medium': 0, 'hard': 0})
-    next_difficulty = max(available_actions, key=available_actions.get)
+    default_q_values = {'easy': 3, 'medium': 2, 'hard': 1}
+    available_actions = Q_TABLE.get(current_state, default_q_values)
+    
+    # If correct answer, progress to next difficulty level
+    if is_correct:
+        if current_difficulty == 'easy':
+            next_difficulty = 'medium'
+        elif current_difficulty == 'medium':
+            next_difficulty = 'hard'
+        else:
+            # If already at hard level, use Q-learning to decide
+            next_difficulty = max(available_actions, key=available_actions.get)
+    else:
+        # If incorrect, reload same difficulty or possibly easier one based on Q-learning
+        # Increment retries counter
+        session['retries'] = retries + 1
+        
+        # If too many retries, consider going back to an easier level
+        if retries >= 2:
+            next_difficulty = max(available_actions, key=available_actions.get)
+        else:
+            next_difficulty = current_difficulty
     
     session['next_difficulty'] = next_difficulty
-    session['retries'] += 1
+    
+    print(f"Current difficulty: {current_difficulty}, Next difficulty: {next_difficulty}, Correct: {is_correct}, Retries: {retries}")
     
     return jsonify({
         'correct': is_correct,
         'next_difficulty': next_difficulty,
+        'current_difficulty': current_difficulty,
         'solve_time': round(solve_time, 2),
         'retries': retries
     })
+
 @app.route('/debug_session', methods=['GET'])
 def debug_session():
     session_data = dict(session)
